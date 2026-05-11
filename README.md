@@ -15,9 +15,7 @@ O objetivo central é transformar um dataset estático em um ambiente de simula�
 
 ## 2. Rascunhos Iniciais
 
-A concepção do projeto partiu de um esboço manual focado na organização espacial das informações. O rascunho original (conforme imagem anexa no relatório) estabeleceu os principais elementos da interface.
-
-[imagem do rascunho](image.png)
+A concepção do projeto partiu de um esboço manual focado na organização espacial das informações. O rascunho original estabeleceu os principais elementos da interface.
 
 ### Gráficos de barra
 
@@ -35,15 +33,11 @@ Na parte inferior da interface foi previsto um formulário para criação de nov
 
 A proposta inicial incluiu uma linha visual conectando as barras, permitindo comparar o comportamento de um parâmetro específico ao longo de todas as simulações.
 
-### Observação de design
-
-Durante a evolução do rascunho para a versão digital, optou-se por uma estética **Dark Mode**, inspirada em interfaces de alta tecnologia. A biblioteca **p5.js** foi adotada para garantir fluidez nas animações e nas interações.
+[imagem do rascunho](image.png)
 
 ---
 
-## 3. Registro do Resultado Obtido
-
-### Tecnologias utilizadas
+## 3. Tecnologias Utilizadas
 
 - **p5.js** — motor principal para renderização dos gráficos, detecção de interações (hover e clique), animações e manipulação espacial.
 - **HTML5 / CSS3** — estrutura da interface, tipografia e organização visual.
@@ -55,27 +49,23 @@ Durante a evolução do rascunho para a versão digital, optou-se por uma estét
 
 ### Dashboard de simulações
 
-Cada barra representa uma simulação distinta do dataset. O comprimento da barra corresponde ao lucro gerado naquele cenário.
+Cada barra representa uma simulação distinta; o comprimento corresponde ao lucro gerado.
 
 ### Overlay de parâmetros
 
-Ao selecionar um parâmetro no menu superior, o sistema desenha uma linha de comparação sobre o conjunto de barras. Essa linha permite observar rapidamente como a variação daquele parâmetro se comporta entre as simulações.
+Linha de comparação dinâmica que atravessa o gráfico para correlacionar variáveis selecionadas.
 
 ### Sistema de post-it (pop-up)
 
-Ao clicar em uma barra, surge um post-it digital construído com o uso de `push()`, `pop()` e `translate()`. Esse elemento apresenta os três parâmetros de maior influência naquela simulação específica.
+Detalha os três parâmetros de maior influência em cada barra através de transformações espaciais isoladas.
 
 ### Ranking de influência
 
-A interface pode processar todas as simulações ativas e gerar um ranking global indicando quais parâmetros estão sendo mais determinantes no comportamento do modelo.
+Processamento global que identifica quais parâmetros são estatisticamente mais determinantes no modelo atual.
 
 ### Entrada dinâmica
 
-O sistema permite adicionar novas simulações a partir do preenchimento dos parâmetros do modelo, possibilitando experimentação em tempo real.
-
-### Feedback visual
-
-Pequenas animações e transições foram utilizadas para reforçar a sensação de interatividade e facilitar a leitura das mudanças de estado.
+Permite a inserção de novos dados e o teste de hipóteses sem necessidade de recarregar a aplicação.
 
 ---
 
@@ -93,25 +83,34 @@ Pequenas animações e transições foram utilizadas para reforçar a sensação
 
 ---
 
-## 6. Considerações de Implementação
+## 6. O Valor Estratégico da Visualização
 
-A construção da interface utilizou conceitos fundamentais de computação gráfica presentes no **p5.js**, especialmente:
+A importância desta interface reside na capacidade de humanizar dados complexos. Para um analista de crédito, números isolados em uma planilha podem mascarar tendências.
 
-- **`push()` e `pop()`** para isolamento de estados gráficos;
-- **`translate()`** para reposicionamento local de elementos;
-- **`rotate()`** para pequenas variações visuais em elementos contextuais;
-- **detecção de colisão com mouse** para ativação de pop-ups e interações.
+Esta visualização gera valor através de:
 
-Esses recursos permitiram estruturar a visualização de maneira modular e organizada, facilitando a expansão futura da interface.
+### Aceleração do insight
+
+Ao utilizar o **overlay de parâmetros**, o analista não precisa comparar tabelas manualmente. A correlação visual entre o aumento do limite (`Lmax`) e a queda no lucro torna-se imediatamente evidente por meio da inclinação da linha de tendência.
+
+### Análise de sensibilidade intuitiva
+
+Ao alterar valores e criar novos cenários, o usuário realiza o chamado **what-if analysis** (análise de cenários).
+
+O valor surge ao permitir que o analista descubra o ponto de ruptura da carteira — por exemplo, até que ponto a inadimplência pode crescer antes que o lucro seja anulado — em um ambiente seguro e visual.
+
+### Identificação de causas raiz
+
+O sistema de **post-its de influência** reduz a sobrecarga cognitiva.
+
+Em vez de analisar simultaneamente sete variáveis, o analista concentra sua atenção nas três que exercem maior impacto em cada cenário, permitindo decisões mais rápidas e assertivas.
 
 ---
 
-## 7. Conclusão do Protótipo
+## 7. Conclusão
 
-O resultado final entrega uma ferramenta que vai além da simples exibição de dados: trata-se de um ambiente de experimentação.
+O resultado final entrega uma ferramenta que vai além da exibição de dados: trata-se de um ambiente de experimentação.
 
-A proposta permite observar o comportamento de múltiplos cenários, comparar parâmetros e explorar hipóteses de forma visual e interativa.
+Ao permitir que o analista interaja, altere e crie dados, a interface deixa de ser um relatório estático e passa a funcionar como uma extensão do raciocínio lógico do profissional.
 
-O uso do **p5.js** foi fundamental para construir uma experiência de usuário mais fluida e exploratória, aproximando a interface de um ambiente de análise investigativa, em vez de um dashboard corporativo tradicional.
-
-Como continuidade do projeto, a lógica de influência dos parâmetros poderá ser substituída por um modelo estatístico ou preditivo real, conectando diretamente a interface ao pipeline de análise de crédito.
+O uso do **p5.js** transformou o processo de análise de risco em uma experiência investigativa fluida, reduzindo a barreira entre a complexidade matemática do modelo e a tomada de decisão estratégica.

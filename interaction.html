@@ -286,104 +286,8 @@ canvas { display: block; margin-top: 0; }
 
 <script>
 /* ═══════════════════════════════════════════════════════════
-   FORMULA MATEMÁTICA DE CRÉDITO
-   
-   Z = Σ [ r_int · τ · L_i · (1 - pd_i) - LGD · pd_i · L_i ]
-   
-   onde:
-   - r_int: taxa de interchange
-   - τ (T): taxa de utilização média do limite
-   - L_i: limite do cliente i (Lmax * alfa_k * fator_cliente)
-   - pd_i: probabilidade de inadimplência
-   - LGD: loss given default
-   
-   Para fins de simulação, consideramos um portfólio com 100 clientes
-   distribuídos em 5 faixas de risco
+   SHARED DATA & CONSTANTS
 ═══════════════════════════════════════════════════════════ */
-
-// Função que implementa a fórmula matemática de concessão de crédito
-function calculateCreditProfit(params) {
-  // Parâmetros da simulação
-  const r_int = params.r_int;           // taxa de interchange
-  const T = params.T;                   // taxa de utilização média (τ)
-  const LGD = params.LGD;               // loss given default
-  const Lmax = params.Lmax;             // limite máximo base
-  const alfa_k = params.alfa_k;         // multiplicador de alavancagem
-  const pdi_base = params.pdi;          // probabilidade de inadimplência base
-  const delta_cpi = params.delta_cpi;   // capacidade de pagamento
-  
-  // Configuração do portfólio - 5 faixas de clientes
-  const clientes = [
-    { peso: 0.35, risco: 0.7, capacidade: 1.2 },  // clientes premium (35%)
-    { peso: 0.30, risco: 1.0, capacidade: 1.0 },  // clientes standard (30%)
-    { peso: 0.20, risco: 1.3, capacidade: 0.8 },  // clientes médio risco (20%)
-    { peso: 0.10, risco: 1.6, capacidade: 0.6 },  // clientes alto risco (10%)
-    { peso: 0.05, risco: 2.0, capacidade: 0.4 }    // clientes subprime (5%)
-  ];
-  
-  let totalProfit = 0;
-  
-  // Para cada cliente no portfólio, calcula a contribuição
-  for (let i = 0; i < clientes.length; i++) {
-    const cliente = clientes[i];
-    
-    // Cálculo do limite individual L_i baseado em Lmax, alavancagem e capacidade
-    const L_i = Lmax * alfa_k * delta_cpi * cliente.capacidade;
-    
-    // Probabilidade de inadimplência ajustada pelo risco do cliente
-    const pd_i = Math.min(0.95, pdi_base * cliente.risco);
-    
-    // RECEITA ESPERADA: r_int · τ · L_i · (1 - pd_i)
-    const receitaEsperada = r_int * T * L_i * (1 - pd_i);
-    
-    // PERDA ESPERADA: LGD · pd_i · L_i
-    const perdaEsperada = LGD * pd_i * L_i;
-    
-    // Lucro do cliente individual
-    const lucroCliente = receitaEsperada - perdaEsperada;
-    
-    // Acumula ponderado pelo peso do cliente na carteira
-    totalProfit += lucroCliente * cliente.peso;
-  }
-  
-  // Normalização para escala 0-1 (visível no gráfico)
-  // Base de referência: lucro máximo teórico ~50,000
-  const profitNormalized = Math.min(0.98, Math.max(0.02, totalProfit / 80000 + 0.3));
-  
-  return {
-    raw: totalProfit,
-    normalized: profitNormalized,
-    formatted: `R$ ${Math.abs(totalProfit).toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 0})}`
-  };
-}
-
-// Função para determinar top 3 parâmetros mais influentes
-function calculateTop3(params, profit) {
-  const variations = [];
-  const paramKeys = ['r_int', 'T', 'LGD', 'Lmax', 'alfa_k', 'pdi', 'delta_cpi'];
-  
-  for (let key of paramKeys) {
-    const originalValue = params[key];
-    // Testa variação de +20% e -20%
-    const delta = originalValue * 0.2;
-    const upValue = Math.min(1, originalValue + delta);
-    const downValue = Math.max(0, originalValue - delta);
-    
-    const paramsUp = { ...params, [key]: upValue };
-    const paramsDown = { ...params, [key]: downValue };
-    
-    const profitUp = calculateCreditProfit(paramsUp).normalized;
-    const profitDown = calculateCreditProfit(paramsDown).normalized;
-    
-    const influence = Math.abs(profitUp - profit) + Math.abs(profitDown - profit);
-    variations.push({ key, influence });
-  }
-  
-  variations.sort((a,b) => b.influence - a.influence);
-  return variations.slice(0,3).map(v => v.key);
-}
-
-// Parâmetros disponíveis para visualização
 const PARAMS = [
   { key:'r_int',     label:'r_int',  desc:'Taxa de Interchange',         hex:'#FF6B6B', rgb:[255,107,107] },
   { key:'T',         label:'T',      desc:'Util. Média do Limite',        hex:'#4ECDC4', rgb:[78,205,196]  },
@@ -394,39 +298,28 @@ const PARAMS = [
   { key:'delta_cpi', label:'Δcp_i',  desc:'Capacidade de Pagamento',      hex:'#A29BFE', rgb:[162,155,254] },
 ];
 
-// Simulações iniciais com a nova fórmula
-let simulations = [];
-let nextId = 1;
+let simulations = [
+  { id:1, name:'SIM·01', profit:0.72,
+    params:{ r_int:0.82, T:0.60, LGD:0.25, Lmax:0.70, alfa_k:0.50, pdi:0.18, delta_cpi:0.88 },
+    top3:['delta_cpi','r_int','LGD'], anim:1 },
+  { id:2, name:'SIM·02', profit:0.47,
+    params:{ r_int:0.38, T:0.72, LGD:0.64, Lmax:0.48, alfa_k:0.80, pdi:0.61, delta_cpi:0.36 },
+    top3:['pdi','LGD','alfa_k'], anim:1 },
+  { id:3, name:'SIM·03', profit:0.85,
+    params:{ r_int:0.90, T:0.50, LGD:0.18, Lmax:0.88, alfa_k:0.32, pdi:0.10, delta_cpi:0.95 },
+    top3:['r_int','Lmax','delta_cpi'], anim:1 },
+  { id:4, name:'SIM·04', profit:0.32,
+    params:{ r_int:0.22, T:0.88, LGD:0.78, Lmax:0.28, alfa_k:0.92, pdi:0.82, delta_cpi:0.20 },
+    top3:['pdi','LGD','T'], anim:1 },
+  { id:5, name:'SIM·05', profit:0.60,
+    params:{ r_int:0.65, T:0.42, LGD:0.38, Lmax:0.62, alfa_k:0.55, pdi:0.33, delta_cpi:0.72 },
+    top3:['delta_cpi','r_int','LGD'], anim:1 },
+  { id:6, name:'SIM·06', profit:0.54,
+    params:{ r_int:0.52, T:0.65, LGD:0.48, Lmax:0.56, alfa_k:0.62, pdi:0.46, delta_cpi:0.58 },
+    top3:['T','alfa_k','delta_cpi'], anim:1 },
+];
 
-function createInitialSimulations() {
-  const initialParams = [
-    { r_int:0.82, T:0.60, LGD:0.25, Lmax:0.70, alfa_k:0.50, pdi:0.18, delta_cpi:0.88, name:'SIM·01' },
-    { r_int:0.38, T:0.72, LGD:0.64, Lmax:0.48, alfa_k:0.80, pdi:0.61, delta_cpi:0.36, name:'SIM·02' },
-    { r_int:0.90, T:0.50, LGD:0.18, Lmax:0.88, alfa_k:0.32, pdi:0.10, delta_cpi:0.95, name:'SIM·03' },
-    { r_int:0.22, T:0.88, LGD:0.78, Lmax:0.28, alfa_k:0.92, pdi:0.82, delta_cpi:0.20, name:'SIM·04' },
-    { r_int:0.65, T:0.42, LGD:0.38, Lmax:0.62, alfa_k:0.55, pdi:0.33, delta_cpi:0.72, name:'SIM·05' },
-    { r_int:0.52, T:0.65, LGD:0.48, Lmax:0.56, alfa_k:0.62, pdi:0.46, delta_cpi:0.58, name:'SIM·06' }
-  ];
-  
-  simulations = initialParams.map((p, idx) => {
-    const profitData = calculateCreditProfit(p);
-    const top3 = calculateTop3(p, profitData.normalized);
-    return {
-      id: idx + 1,
-      name: p.name,
-      profit: profitData.normalized,
-      profitRaw: profitData.raw,
-      profitFormatted: profitData.formatted,
-      params: { ...p },
-      top3: top3,
-      anim: 0
-    };
-  });
-  
-  nextId = simulations.length + 1;
-}
-
-createInitialSimulations();
+let nextId = 7;
 
 /* ═══════════════════════════════════════════════════════════
    MODAL: ADD SIMULATION
@@ -456,21 +349,19 @@ function closeAdd() { document.getElementById('addVeil').classList.remove('open'
 function submitAdd() {
   const p = {};
   PARAMS.forEach(pm => { p[pm.key] = parseFloat(document.getElementById('sl_'+pm.key).value); });
-  
-  const profitData = calculateCreditProfit(p);
-  const top3 = calculateTop3(p, profitData.normalized);
-  
-  simulations.push({ 
-    id: nextId++, 
-    name: 'SIM·'+String(nextId-1).padStart(2,'0'), 
-    profit: profitData.normalized,
-    profitRaw: profitData.raw,
-    profitFormatted: profitData.formatted,
-    params: p, 
-    top3: top3, 
-    anim: 0 
-  });
-  
+
+  // Heuristic profit: reward high r_int, Lmax, delta_cpi; penalize pdi, LGD
+  const profit = Math.min(0.97, Math.max(0.04,
+    0.18*p.r_int + 0.08*p.T - 0.18*p.LGD + 0.14*p.Lmax +
+    0.04*p.alfa_k - 0.18*p.pdi + 0.18*p.delta_cpi + 0.28 + (Math.random()-0.5)*0.06
+  ));
+
+  // Top 3 by magnitude of deviation from neutral
+  const sorted = PARAMS.map(pm => ({ key:pm.key, score: Math.abs(p[pm.key]-0.5) }))
+                       .sort((a,b) => b.score - a.score);
+  const top3 = sorted.slice(0,3).map(x => x.key);
+
+  simulations.push({ id: nextId++, name:'SIM·'+String(nextId-1).padStart(2,'0'), profit, params:p, top3, anim:0 });
   document.getElementById('simCount').textContent = simulations.length;
   closeAdd();
 }
@@ -482,12 +373,12 @@ function openCmp() {
   const scores = {};
   PARAMS.forEach(p => scores[p.key] = 0);
   simulations.forEach(sim => sim.top3.forEach((k,i) => { scores[k] += (3-i); }));
-  
+
   const ranked = PARAMS.map(p => ({ ...p, score: scores[p.key] }))
                        .sort((a,b) => b.score - a.score);
   const max = Math.max(1, ranked[0].score);
   const medals = ['🥇','🥈','🥉'];
-  
+
   document.getElementById('cmpBody').innerHTML = ranked.map((p,i) => `
     <div class="cmp-row">
       <div class="${i<3?'cmp-medal':'cmp-num'}">${i<3 ? medals[i] : (i+1)}</div>
@@ -499,7 +390,7 @@ function openCmp() {
       <div class="cmp-pts" style="color:${p.hex}">${p.score}pt</div>
     </div>
   `).join('');
-  
+
   document.getElementById('cmpVeil').classList.add('open');
 }
 function closeCmp() { document.getElementById('cmpVeil').classList.remove('open'); }
@@ -517,18 +408,18 @@ function closeCmp() { document.getElementById('cmpVeil').classList.remove('open'
 
 const CANVAS_H = 940;
 
-// Layout constants
+// Layout constants (recalculated)
 let cTop, cBot, cLeft, cRight, cH;
 let barW, barGap;
 let btnCmp, btnAdd;
 
 // State
 let selectedParam = '';
-let popup = null;
+let popup = null;      // { simId, cx, bt }
 let hoverIdx = -1;
 let particles = [];
 let prevSimLen = 6;
-let scanLine = 0;
+let scanLine = 0;      // animated scan
 
 document.getElementById('paramSelect').addEventListener('change', function() {
   selectedParam = this.value;
@@ -553,12 +444,12 @@ function layout() {
   cLeft = 74;
   cRight = width - 44;
   cH = cBot - cTop;
-  
+
   const n = simulations.length;
   const avail = cRight - cLeft;
   barGap = max(10, min(28, avail * 0.05));
   barW   = max(28, min(96, (avail - barGap*(n+1)) / n));
-  
+
   const bY = 638, bW = 218, bH = 46;
   btnCmp = { x: width/2 - bW - 12, y: bY, w: bW, h: bH };
   btnAdd = { x: width/2 + 12,       y: bY, w: bW, h: bH };
@@ -577,7 +468,7 @@ function draw() {
   // Detect new simulation added
   if (simulations.length > prevSimLen) {
     const last = simulations[simulations.length-1];
-    const i = simulations.length-1;
+    const i = simulations.length - 1;
     setTimeout(() => {
       const bxi = bx(i) + barW/2;
       for (let j=0; j<28; j++) {
@@ -592,7 +483,7 @@ function draw() {
     }, 200);
     prevSimLen = simulations.length;
   }
-  
+
   // Animate
   simulations.forEach(sim => {
     if (sim.anim < 1) sim.anim = min(1, sim.anim + 0.035);
@@ -600,10 +491,10 @@ function draw() {
   particles = particles.filter(p => p.life > 0);
   particles.forEach(p => { p.x+=p.vx; p.y+=p.vy; p.vy+=0.22; p.life-=3; });
   scanLine = (scanLine + 1.2) % cH;
-  
+
   layout();
   background(8, 9, 13);
-  
+
   drawScanlines();
   drawGrid();
   drawBars();
@@ -611,37 +502,19 @@ function draw() {
   drawParticles();
   drawButtons();
   drawAxisLabels();
-  drawFormulaInfo();
   if (popup) drawPopup();
   updateHover();
 }
 
-function drawFormulaInfo() {
-  // Exibe a fórmula no canto inferior esquerdo
-  push();
-  fill(61,125,255,40);
-  noStroke();
-  rect(20, height - 95, 380, 75, 8);
-  fill(100,150,220,180);
-  textFont('Space Mono');
-  textSize(8);
-  textAlign(LEFT, TOP);
-  text('Z = Σ [ r_int · τ · L_i · (1 - pd_i) - LGD · pd_i · L_i ]', 28, height - 85);
-  textSize(7);
-  fill(120,160,220,150);
-  text('Receita Esperada → Perda Esperada | Portfolio com 5 faixas de risco', 28, height - 65);
-  text('r_int: interchange | τ: utilização | LGD: perda | pd_i: inadimplência', 28, height - 50);
-  textFont('DM Sans');
-  pop();
-}
-
 /* ── SCANLINE EFFECT ──────────────────── */
 function drawScanlines() {
+  // Subtle horizontal scan across chart area
   noStroke();
   for (let y=cTop; y<cBot; y+=3) {
     fill(255,255,255, y%6===0 ? 3 : 1);
     rect(cLeft, y, cRight-cLeft, 1);
   }
+  // Moving scan highlight
   noStroke();
   for (let dy=-4; dy<4; dy++) {
     fill(61,125,255, map(abs(dy),0,4,10,0));
@@ -658,13 +531,15 @@ function drawGrid() {
     const gy = cTop + (i/N)*cH;
     line(cLeft, gy, cRight, gy);
   }
+  // Left and bottom axis lines
   stroke(61,125,255,60);
   strokeWeight(2);
   line(cLeft, cBot, cRight, cBot);
   stroke(61,125,255,35);
   strokeWeight(1);
   line(cLeft, cTop, cLeft, cBot);
-  
+
+  // Title
   noStroke();
   fill(200,220,255,210);
   textSize(19);
@@ -672,7 +547,7 @@ function drawGrid() {
   textAlign(CENTER, TOP);
   text('Concessão de Crédito por Simulação', width/2, 66);
   textStyle(NORMAL);
-  
+
   fill(120,160,220,100);
   textSize(11);
   textFont('Space Mono');
@@ -702,7 +577,7 @@ function drawAxisLabels() {
   textFont('Space Mono');
   textSize(10);
   textAlign(CENTER, CENTER);
-  text('CRÉDITO CONCEDIDO (Z)', 0, 0);
+  text('LUCRO / CONCESSÃO', 0, 0);
   textFont('DM Sans');
   pop();
 }
@@ -710,51 +585,364 @@ function drawAxisLabels() {
 /* ── BARS ─────────────────────────────── */
 function drawBars() {
   hoverIdx = -1;
-  
+
   simulations.forEach((sim, i) => {
     const x = bx(i);
     const bt = getBarTop(sim);
     const bh = cBot - bt;
     const isHov = mouseX>=x && mouseX<=x+barW && mouseY>=bt && mouseY<=cBot;
     const isSel = popup && popup.simId===sim.id;
-    
+
     if (isHov) hoverIdx = i;
-    
+
+    // Glow
     if (isHov || isSel) {
       drawingContext.shadowBlur = 30;
       drawingContext.shadowColor = isSel ? 'rgba(161,155,254,0.45)' : 'rgba(61,125,255,0.45)';
     }
-    
+
+    // Bar gradient
     const topC = isSel ? color(161,155,254) : isHov ? color(90,165,255) : color(61,125,255);
     const botC = isSel ? color(60,50,140)   : isHov ? color(20,60,170)  : color(16,40,130);
-    
+
     noStroke();
     for (let dy=0; dy<bh; dy+=2) {
       const t = dy/bh;
       fill(lerpColor(topC, botC, t));
       rect(x, bt+dy, barW, 2.5);
     }
-    
+
+    // Glass sheen on top third
     noStroke();
     const sheenH = min(bh*0.35, 60);
     for (let dy=0; dy<sheenH; dy++) {
       fill(255,255,255, map(dy,0,sheenH,28,0));
       rect(x+2, bt+dy, barW-4, 1);
     }
-    
+
     drawingContext.shadowBlur = 0;
-    
+
+    // Top cap rounded
     noFill();
     stroke(isSel ? color(200,195,255,200) : isHov ? color(120,190,255,160) : color(61,125,255,80));
     strokeWeight(isSel||isHov ? 2 : 1.5);
     rect(x, bt, barW, bh, 4,4,0,0);
-    
+
+    // Profit label
     if (sim.anim > 0.75) {
       noStroke();
       fill(isHov||isSel ? 255 : color(180,215,255,210));
       textFont('Space Mono');
-      textSize(10);
+      textSize(11);
       textStyle(BOLD);
       textAlign(CENTER, BOTTOM);
       text((sim.profit*100).toFixed(0)+'%', x+barW/2, bt-6);
-      text
+      textStyle(NORMAL);
+      textFont('DM Sans');
+    }
+
+    // Name
+    noStroke();
+    fill(100,150,220, isSel||isHov ? 220 : 140);
+    textFont('Space Mono');
+    textSize(9);
+    textAlign(CENTER, TOP);
+    text(sim.name, x+barW/2, cBot+9);
+    textFont('DM Sans');
+  });
+}
+
+/* ── PARAMETER OVERLAY LINE ───────────── */
+function drawParamLine() {
+  if (simulations.length < 2) return;
+  const pm = PARAMS.find(p => p.key===selectedParam);
+  if (!pm) return;
+
+  const pts = simulations.map((sim,i) => ({
+    x: bx(i)+barW/2,
+    y: cBot - sim.params[selectedParam]*cH
+  }));
+
+  const c = color(pm.rgb[0], pm.rgb[1], pm.rgb[2]);
+
+  // Area fill
+  noStroke();
+  beginShape();
+  fill(pm.rgb[0], pm.rgb[1], pm.rgb[2], 22);
+  vertex(pts[0].x, cBot);
+  pts.forEach(p => vertex(p.x, p.y));
+  vertex(pts[pts.length-1].x, cBot);
+  endShape(CLOSE);
+
+  // Glow line
+  drawingContext.shadowBlur = 18;
+  drawingContext.shadowColor = `rgba(${pm.rgb},0.6)`;
+  stroke(c);
+  strokeWeight(2.5);
+  noFill();
+  beginShape();
+  curveVertex(pts[0].x, pts[0].y);
+  pts.forEach(p => curveVertex(p.x, p.y));
+  curveVertex(pts[pts.length-1].x, pts[pts.length-1].y);
+  endShape();
+  drawingContext.shadowBlur = 0;
+
+  // Dots + value labels
+  pts.forEach((p,i) => {
+    const val = simulations[i].params[selectedParam];
+
+    fill(8,9,13); stroke(c); strokeWeight(2.5);
+    ellipse(p.x, p.y, 12, 12);
+    noStroke(); fill(c);
+    ellipse(p.x, p.y, 5, 5);
+
+    // Small value badge
+    const vStr = (val*100).toFixed(0)+'%';
+    const tw = 30;
+    noStroke();
+    fill(pm.rgb[0], pm.rgb[1], pm.rgb[2], 180);
+    rect(p.x-tw/2, p.y-22, tw, 16, 3);
+    fill(8,9,13,220);
+    textFont('Space Mono');
+    textSize(9);
+    textAlign(CENTER, CENTER);
+    text(vStr, p.x, p.y-14);
+    textFont('DM Sans');
+  });
+
+  // Legend pill
+  const lp = pts[pts.length-1];
+  const tagTxt = pm.label+' · '+pm.desc;
+  textSize(11);
+  const tw2 = textWidth(tagTxt)+22;
+  const tx = min(lp.x+16, width-tw2-10);
+  const ty = lp.y-12;
+  noStroke();
+  fill(pm.rgb[0], pm.rgb[1], pm.rgb[2], 200);
+  rect(tx, ty, tw2, 22, 11);
+  fill(8,9,13,230);
+  textStyle(BOLD);
+  textAlign(LEFT, CENTER);
+  text(tagTxt, tx+11, ty+11);
+  textStyle(NORMAL);
+}
+
+/* ── BUTTONS ──────────────────────────── */
+function drawButtons() {
+  // Hint
+  noStroke(); fill(80,120,200,80);
+  textFont('Space Mono');
+  textSize(10);
+  textAlign(CENTER,TOP);
+  text('↓  SCROLL  ↓', width/2, cBot+28);
+  textFont('DM Sans');
+
+  [[btnCmp,'📊  Comparar Parâmetros',[40,100,220],[61,125,255]],
+   [btnAdd,'➕  Nova Simulação',      [85,45,185],[130,75,255]]
+  ].forEach(([btn, lbl, c1, c2]) => {
+    const isHov = mouseX>=btn.x&&mouseX<=btn.x+btn.w&&mouseY>=btn.y&&mouseY<=btn.y+btn.h;
+
+    if (isHov) {
+      drawingContext.shadowBlur = 24;
+      drawingContext.shadowColor = `rgba(${c2.join(',')},0.55)`;
+    }
+
+    noStroke();
+    for (let dy=0; dy<btn.h; dy++) {
+      const t = dy/btn.h;
+      fill(lerpColor(color(...c1), color(...c1.map((v,i)=>v*0.5)), t));
+      rect(btn.x, btn.y+dy, btn.w, 1.5);
+    }
+    drawingContext.shadowBlur = 0;
+
+    noFill();
+    stroke(color(...c2, isHov?200:120));
+    strokeWeight(1.5);
+    rect(btn.x, btn.y, btn.w, btn.h, btn.h/2);
+
+    noStroke();
+    fill(255,255,255, isHov?255:210);
+    textSize(13);
+    textStyle(BOLD);
+    textAlign(CENTER, CENTER);
+    text(lbl, btn.x+btn.w/2, btn.y+btn.h/2);
+    textStyle(NORMAL);
+  });
+
+  // Divider
+  stroke(61,125,255,20);
+  strokeWeight(1);
+  line(cLeft, cBot+18, cRight, cBot+18);
+}
+
+/* ── POPUP (Post-it) ──────────────────── */
+function drawPopup() {
+  const sim = simulations.find(s => s.id===popup.simId);
+  if (!sim) { popup=null; return; }
+
+  const i   = simulations.findIndex(s => s.id===sim.id);
+  const cx  = bx(i)+barW/2;
+  const bt  = getBarTop(sim);
+
+  const pw=264, ph=188;
+  let px=cx-pw/2;
+  let py=bt-ph-18;
+  px=constrain(px, 8, width-pw-8);
+  py=constrain(py, 64, height-ph-8);
+
+  const arrowX = constrain(cx, px+16, px+pw-16);
+
+  push();
+
+  // Shadow
+  drawingContext.shadowBlur = 36;
+  drawingContext.shadowColor = 'rgba(0,0,0,0.75)';
+
+  // Post-it body
+  fill(255,250,212);
+  stroke(195,180,90,220);
+  strokeWeight(1.5);
+  rect(px, py, pw, ph, 6);
+  drawingContext.shadowBlur = 0;
+
+  // Fold corner
+  noStroke();
+  fill(185,165,70,130);
+  triangle(px+pw-24,py, px+pw,py, px+pw,py+24);
+  fill(165,145,55,80);
+  triangle(px+pw-18,py, px+pw,py, px+pw,py+18);
+
+  // Header
+  noStroke();
+  fill(30,30,55);
+  textFont('Space Mono');
+  textSize(10);
+  textStyle(BOLD);
+  textAlign(LEFT,TOP);
+  text('📌 '+sim.name+' · TOP 3 INFLUÊNCIAS', px+13, py+13);
+  textStyle(NORMAL);
+  textFont('DM Sans');
+
+  stroke(185,170,100,130); strokeWeight(1);
+  line(px+10,py+32, px+pw-10,py+32);
+
+  // Top 3
+  sim.top3.forEach((key,idx) => {
+    const pm = PARAMS.find(p => p.key===key);
+    if (!pm) return;
+    const ry = py+44+idx*44;
+    const c  = color(pm.rgb[0],pm.rgb[1],pm.rgb[2]);
+    const val = sim.params[key];
+
+    // Colored dot
+    noStroke(); fill(c);
+    ellipse(px+20, ry+10, 11,11);
+
+    // Rank badge
+    fill(40,40,70,190);
+    rect(px+32, ry+3, 22,14, 3);
+    fill(235,235,235);
+    textFont('Space Mono');
+    textSize(9); textStyle(BOLD); textAlign(CENTER,CENTER);
+    text(idx+1, px+43, ry+10);
+    textStyle(NORMAL); textFont('DM Sans');
+
+    // Key name + desc
+    noStroke();
+    fill(25,25,50);
+    textSize(13); textStyle(BOLD); textAlign(LEFT,TOP);
+    text(pm.label, px+62, ry+2);
+    textStyle(NORMAL);
+    fill(50,50,75,200);
+    textSize(10);
+    text(pm.desc, px+62, ry+18);
+
+    // Mini bar
+    const bvx=px+170, bvy=ry+10, bvw=pw-185;
+    noStroke(); fill(195,185,150,100);
+    rect(bvx,bvy,bvw,5,2);
+    fill(c);
+    rect(bvx,bvy,bvw*val,5,2);
+    fill(30,30,50);
+    textFont('Space Mono'); textSize(8);
+    textAlign(RIGHT,CENTER);
+    text((val*100).toFixed(0)+'%', px+pw-8, bvy+2);
+    textFont('DM Sans');
+  });
+
+  // Close button
+  const cx2=px+pw-14, cy2=py+14;
+  noStroke(); fill(185,170,80,160);
+  ellipse(cx2,cy2,20,20);
+  fill(50,35,10);
+  textFont('Space Mono'); textSize(10); textStyle(BOLD); textAlign(CENTER,CENTER);
+  text('✕',cx2,cy2);
+  textStyle(NORMAL); textFont('DM Sans');
+
+  // Arrow pointing down to bar
+  noStroke(); fill(255,250,212);
+  triangle(arrowX-8,py+ph, arrowX+8,py+ph, arrowX,py+ph+13);
+  stroke(195,180,90,200); strokeWeight(1.2);
+  line(arrowX-8,py+ph, arrowX,py+ph+13);
+  line(arrowX+8,py+ph, arrowX,py+ph+13);
+
+  pop();
+}
+
+/* ── PARTICLES ────────────────────────── */
+function drawParticles() {
+  particles.forEach(p => {
+    noStroke();
+    fill(p.r,p.g,p.b, p.life*0.8);
+    const sz = p.size * (p.life/220);
+    ellipse(p.x, p.y, sz, sz);
+  });
+}
+
+/* ── CURSOR & HOVER ───────────────────── */
+function updateHover() {
+  const overBar = hoverIdx >= 0;
+  const overBtn = (mouseX>=btnCmp.x&&mouseX<=btnCmp.x+btnCmp.w&&mouseY>=btnCmp.y&&mouseY<=btnCmp.y+btnCmp.h) ||
+                  (mouseX>=btnAdd.x&&mouseX<=btnAdd.x+btnAdd.w&&mouseY>=btnAdd.y&&mouseY<=btnAdd.y+btnAdd.h);
+  cursor(overBar||overBtn ? HAND : ARROW);
+}
+
+/* ── MOUSE CLICKED ────────────────────── */
+function mouseClicked() {
+  // Close popup X
+  if (popup) {
+    const sim = simulations.find(s => s.id===popup.simId);
+    if (sim) {
+      const i = simulations.findIndex(s => s.id===sim.id);
+      const cx = bx(i)+barW/2;
+      const bt = getBarTop(sim);
+      const pw=264,ph=188;
+      let px=cx-pw/2, py=bt-ph-18;
+      px=constrain(px,8,width-pw-8); py=constrain(py,64,height-ph-8);
+      if (dist(mouseX,mouseY,px+pw-14,py+14)<14) { popup=null; return; }
+    }
+  }
+
+  // Bar click
+  for (let i=0; i<simulations.length; i++) {
+    const sim=simulations[i];
+    const x=bx(i), bt=getBarTop(sim);
+    if (mouseX>=x && mouseX<=x+barW && mouseY>=bt && mouseY<=cBot) {
+      popup = popup&&popup.simId===sim.id ? null : { simId:sim.id };
+      return;
+    }
+  }
+
+  // Buttons
+  if (mouseX>=btnCmp.x&&mouseX<=btnCmp.x+btnCmp.w&&mouseY>=btnCmp.y&&mouseY<=btnCmp.y+btnCmp.h) {
+    openCmp(); return;
+  }
+  if (mouseX>=btnAdd.x&&mouseX<=btnAdd.x+btnAdd.w&&mouseY>=btnAdd.y&&mouseY<=btnAdd.y+btnAdd.h) {
+    openAdd(); return;
+  }
+
+  popup = null;
+}
+</script>
+</body>
+</html>
