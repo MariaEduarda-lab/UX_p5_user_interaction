@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Credit Analysis — Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+  --bg:       #08090d;
+  --surface:  #0e1117;
+  --panel:    #141824;
+  --border:   rgba(90,130,220,0.22);
+  --accent:   #3d7dff;
+  --text:     #c8d8f8;
+  --muted:    rgba(140,170,230,0.5);
+  --font-mono: 'Space Mono', monospace;
+  --font-sans: 'DM Sans', sans-serif;
+}
+
+body {
+  background: var(--bg);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  color: var(--text);
+}
+
+/* ── TOP BAR ─────────────────────────────────── */
+#topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0; z-index: 60;
+  height: 56px;
+  background: rgba(8,9,13,0.88);
+  backdrop-filter: blur(18px);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  gap: 20px;
+}
+
+.topbar-brand {
+  display: flex; align-items: center; gap: 10px;
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.brand-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.85)} }
+
+.topbar-controls {
+  display: flex; align-items: center; gap: 14px;
+  flex: 1; justify-content: center;
+}
+.ctrl-label {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+#paramSelect {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 7px 16px;
+  border-radius: 6px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  min-width: 260px;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236090dd' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+#paramSelect:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(61,125,255,0.18); }
+#paramSelect option { background: #141824; }
+
+.topbar-info {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  text-align: right;
+  white-space: nowrap;
+}
+#simCount { color: var(--accent); }
+
+/* ── MODAL SYSTEM ────────────────────────────── */
+.modal-veil {
+  display: none;
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(6px);
+  align-items: center;
+  justify-content: center;
+}
+.modal-veil.open { display: flex; }
+
+.modal {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 30px 34px;
+  width: 520px;
+  max-width: 96vw;
+  max-height: 92vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 32px 100px rgba(0,0,0,0.85), 0 0 0 1px rgba(61,125,255,0.1);
+}
+.modal::-webkit-scrollbar { width: 4px; }
+.modal::-webkit-scrollbar-thumb { background: rgba(61,125,255,0.3); border-radius: 2px; }
+
+.modal-title {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 22px;
+  display: flex; align-items: center; gap: 10px;
+}
+.modal-title::after {
+  content: ''; flex: 1; height: 1px;
+  background: var(--border);
+}
+
+.modal-x {
+  position: absolute; top: 18px; right: 20px;
+  background: none; border: none;
+  color: var(--muted); font-size: 16px; cursor: pointer;
+  width: 30px; height: 30px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.modal-x:hover { background: rgba(255,255,255,0.08); color: white; }
+
+/* Sliders inside add-modal */
+.sl-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 9px 10px; border-radius: 7px;
+  transition: background 0.15s;
+  margin-bottom: 4px;
+}
+.sl-row:hover { background: rgba(255,255,255,0.03); }
+.sl-lbl {
+  width: 150px; flex-shrink: 0;
+  line-height: 1.35;
+}
+.sl-key {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+}
+.sl-desc {
+  font-size: 10px;
+  color: var(--muted);
+}
+.sl-row input[type=range] {
+  flex: 1; cursor: pointer; height: 3px;
+  accent-color: var(--accent);
+}
+.sl-val {
+  font-family: var(--font-mono);
+  font-size: 12px; font-weight: 700;
+  width: 36px; text-align: right;
+  color: var(--accent);
+}
+
+.btn-row { display: flex; gap: 10px; margin-top: 22px; justify-content: flex-end; }
+.btn {
+  padding: 10px 26px; border-radius: 6px; border: none;
+  cursor: pointer; font-family: var(--font-sans);
+  font-size: 13px; font-weight: 600; letter-spacing: 0.2px;
+  transition: all 0.2s;
+}
+.btn-ghost {
+  background: rgba(255,255,255,0.06);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+.btn-accent {
+  background: var(--accent);
+  color: white;
+  box-shadow: 0 4px 20px rgba(61,125,255,0.35);
+}
+.btn-accent:hover { filter: brightness(1.12); transform: translateY(-1px); box-shadow: 0 6px 28px rgba(61,125,255,0.5); }
+
+/* Compare rows */
+.cmp-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 8px; border-radius: 6px;
+  transition: background 0.15s;
+  margin-bottom: 6px;
+}
+.cmp-row:hover { background: rgba(255,255,255,0.03); }
+.cmp-medal { font-size: 18px; width: 26px; text-align: center; flex-shrink: 0; }
+.cmp-num {
+  width: 26px; text-align: center; flex-shrink: 0;
+  font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+}
+.cmp-key {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+  width: 56px; flex-shrink: 0;
+}
+.cmp-desc-txt { flex: 1; font-size: 11px; color: var(--muted); }
+.cmp-track { width: 130px; height: 5px; background: rgba(255,255,255,0.06); border-radius: 3px; overflow: hidden; flex-shrink: 0; }
+.cmp-fill { height: 100%; border-radius: 3px; }
+.cmp-pts {
+  font-family: var(--font-mono); font-size: 11px;
+  width: 36px; text-align: right; flex-shrink: 0;
+  color: var(--muted);
+}
+
+canvas { display: block; margin-top: 0; }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div class="topbar-brand">
+    <div class="brand-dot"></div>
+    Credit Analyzer
+  </div>
+  <div class="topbar-controls">
+    <span class="ctrl-label">Parâmetro para comparar</span>
+    <select id="paramSelect">
+      <option value="">— Nenhum selecionado —</option>
+      <option value="r_int">r_int · Taxa de Interchange</option>
+      <option value="T">T · Utilização Média do Limite</option>
+      <option value="LGD">LGD · Loss Given Default</option>
+      <option value="Lmax">L_max · Limite Máximo</option>
+      <option value="alfa_k">α_k · Multiplicador de Alavancagem</option>
+      <option value="pdi">pd_i · Prob. de Inadimplência</option>
+      <option value="delta_cpi">Δcp_i · Capacidade de Pagamento</option>
+    </select>
+  </div>
+  <div class="topbar-info">
+    <span id="simCount">6</span> simulações ativas
+  </div>
+</div>
+
+<!-- ADD MODAL -->
+<div class="modal-veil" id="addVeil">
+  <div class="modal" id="addModal">
+    <button class="modal-x" onclick="closeAdd()">✕</button>
+    <div class="modal-title">➕ Nova Simulação</div>
+    <div id="sliderZone"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeAdd()">Cancelar</button>
+      <button class="btn btn-accent" onclick="submitAdd()">Adicionar ao Dashboard</button>
+    </div>
+  </div>
+</div>
+
+<!-- COMPARE MODAL -->
+<div class="modal-veil" id="cmpVeil">
+  <div class="modal">
+    <button class="modal-x" onclick="closeCmp()">✕</button>
+    <div class="modal-title">📊 Ranking de Influência</div>
+    <p style="font-size:11px;color:var(--muted);margin-bottom:18px">
+      Frequência de aparição como parâmetro mais influente entre todas as simulações.
+    </p>
+    <div id="cmpBody"></div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   SHARED DATA & CONSTANTS
+═══════════════════════════════════════════════════════════ */
+const PARAMS = [
+  { key:'r_int',     label:'r_int',  desc:'Taxa de Interchange',         hex:'#FF6B6B', rgb:[255,107,107] },
+  { key:'T',         label:'T',      desc:'Util. Média do Limite',        hex:'#4ECDC4', rgb:[78,205,196]  },
+  { key:'LGD',       label:'LGD',    desc:'Loss Given Default',           hex:'#45B7D1', rgb:[69,183,209]  },
+  { key:'Lmax',      label:'L_max',  desc:'Limite Máximo',                hex:'#6FCF97', rgb:[111,207,151] },
+  { key:'alfa_k',    label:'α_k',    desc:'Multiplicador Alavancagem',    hex:'#F2C94C', rgb:[242,201,76]  },
+  { key:'pdi',       label:'pd_i',   desc:'Prob. de Inadimplência',       hex:'#E17055', rgb:[225,112,85]  },
+  { key:'delta_cpi', label:'Δcp_i',  desc:'Capacidade de Pagamento',      hex:'#A29BFE', rgb:[162,155,254] },
+];
+
+let simulations = [
+  { id:1, name:'SIM·01', profit:0.72,
+    params:{ r_int:0.82, T:0.60, LGD:0.25, Lmax:0.70, alfa_k:0.50, pdi:0.18, delta_cpi:0.88 },
+    top3:['delta_cpi','r_int','LGD'], anim:1 },
+  { id:2, name:'SIM·02', profit:0.47,
+    params:{ r_int:0.38, T:0.72, LGD:0.64, Lmax:0.48, alfa_k:0.80, pdi:0.61, delta_cpi:0.36 },
+    top3:['pdi','LGD','alfa_k'], anim:1 },
+  { id:3, name:'SIM·03', profit:0.85,
+    params:{ r_int:0.90, T:0.50, LGD:0.18, Lmax:0.88, alfa_k:0.32, pdi:0.10, delta_cpi:0.95 },
+    top3:['r_int','Lmax','delta_cpi'], anim:1 },
+  { id:4, name:'SIM·04', profit:0.32,
+    params:{ r_int:0.22, T:0.88, LGD:0.78, Lmax:0.28, alfa_k:0.92, pdi:0.82, delta_cpi:0.20 },
+    top3:['pdi','LGD','T'], anim:1 },
+  { id:5, name:'SIM·05', profit:0.60,
+    params:{ r_int:0.65, T:0.42, LGD:0.38, Lmax:0.62, alfa_k:0.55, pdi:0.33, delta_cpi:0.72 },
+    top3:['delta_cpi','r_int','LGD'], anim:1 },
+  { id:6, name:'SIM·06', profit:0.54,
+    params:{ r_int:0.52, T:0.65, LGD:0.48, Lmax:0.56, alfa_k:0.62, pdi:0.46, delta_cpi:0.58 },
+    top3:['T','alfa_k','delta_cpi'], anim:1 },
+];
+
+let nextId = 7;
+
+/* ═══════════════════════════════════════════════════════════
+   MODAL: ADD SIMULATION
+═══════════════════════════════════════════════════════════ */
+function buildSliders() {
+  const z = document.getElementById('sliderZone');
+  z.innerHTML = PARAMS.map(p => `
+    <div class="sl-row">
+      <div class="sl-lbl">
+        <span class="sl-key" style="color:${p.hex}">${p.label}</span>
+        <span class="sl-desc">${p.desc}</span>
+      </div>
+      <input type="range" id="sl_${p.key}" min="0" max="1" step="0.01" value="0.50"
+        style="accent-color:${p.hex}"
+        oninput="document.getElementById('sv_${p.key}').textContent=parseFloat(this.value).toFixed(2)">
+      <span class="sl-val" id="sv_${p.key}" style="color:${p.hex}">0.50</span>
+    </div>
+  `).join('');
+}
+
+function openAdd() {
+  buildSliders();
+  document.getElementById('addVeil').classList.add('open');
+}
+function closeAdd() { document.getElementById('addVeil').classList.remove('open'); }
+
+function submitAdd() {
+  const p = {};
+  PARAMS.forEach(pm => { p[pm.key] = parseFloat(document.getElementById('sl_'+pm.key).value); });
+
+  // Heuristic profit: reward high r_int, Lmax, delta_cpi; penalize pdi, LGD
+  const profit = Math.min(0.97, Math.max(0.04,
+    0.18*p.r_int + 0.08*p.T - 0.18*p.LGD + 0.14*p.Lmax +
+    0.04*p.alfa_k - 0.18*p.pdi + 0.18*p.delta_cpi + 0.28 + (Math.random()-0.5)*0.06
+  ));
+
+  // Top 3 by magnitude of deviation from neutral
+  const sorted = PARAMS.map(pm => ({ key:pm.key, score: Math.abs(p[pm.key]-0.5) }))
+                       .sort((a,b) => b.score - a.score);
+  const top3 = sorted.slice(0,3).map(x => x.key);
+
+  simulations.push({ id: nextId++, name:'SIM·'+String(nextId-1).padStart(2,'0'), profit, params:p, top3, anim:0 });
+  document.getElementById('simCount').textContent = simulations.length;
+  closeAdd();
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MODAL: COMPARE
+═══════════════════════════════════════════════════════════ */
+function openCmp() {
+  const scores = {};
+  PARAMS.forEach(p => scores[p.key] = 0);
+  simulations.forEach(sim => sim.top3.forEach((k,i) => { scores[k] += (3-i); }));
+
+  const ranked = PARAMS.map(p => ({ ...p, score: scores[p.key] }))
+                       .sort((a,b) => b.score - a.score);
+  const max = Math.max(1, ranked[0].score);
+  const medals = ['🥇','🥈','🥉'];
+
+  document.getElementById('cmpBody').innerHTML = ranked.map((p,i) => `
+    <div class="cmp-row">
+      <div class="${i<3?'cmp-medal':'cmp-num'}">${i<3 ? medals[i] : (i+1)}</div>
+      <div class="cmp-key" style="color:${p.hex}">${p.label}</div>
+      <div class="cmp-desc-txt">${p.desc}</div>
+      <div class="cmp-track">
+        <div class="cmp-fill" style="width:${(p.score/max*100).toFixed(0)}%;background:${p.hex}88"></div>
+      </div>
+      <div class="cmp-pts" style="color:${p.hex}">${p.score}pt</div>
+    </div>
+  `).join('');
+
+  document.getElementById('cmpVeil').classList.add('open');
+}
+function closeCmp() { document.getElementById('cmpVeil').classList.remove('open'); }
+
+// Backdrop click closes
+['addVeil','cmpVeil'].forEach(id => {
+  document.getElementById(id).addEventListener('click', e => { if(e.target.id===id) e.target.classList.remove('open'); });
+});
+</script>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   P5.JS — GLOBAL MODE
+═══════════════════════════════════════════════════════════ */
+
+const CANVAS_H = 940;
+
+// Layout constants (recalculated)
+let cTop, cBot, cLeft, cRight, cH;
+let barW, barGap;
+let btnCmp, btnAdd;
+
+// State
+let selectedParam = '';
+let popup = null;      // { simId, cx, bt }
+let hoverIdx = -1;
+let particles = [];
+let prevSimLen = 6;
+let scanLine = 0;      // animated scan
+
+document.getElementById('paramSelect').addEventListener('change', function() {
+  selectedParam = this.value;
+  popup = null;
+});
+
+/* ── SETUP ────────────────────────────── */
+function setup() {
+  let cnv = createCanvas(windowWidth, CANVAS_H);
+  cnv.parent(document.body);
+  textFont('DM Sans');
+  frameRate(60);
+  scanLine = 0;
+}
+
+function windowResized() { resizeCanvas(windowWidth, CANVAS_H); }
+
+/* ── LAYOUT ───────────────────────────── */
+function layout() {
+  cTop  = 100;
+  cBot  = 570;
+  cLeft = 74;
+  cRight = width - 44;
+  cH = cBot - cTop;
+
+  const n = simulations.length;
+  const avail = cRight - cLeft;
+  barGap = max(10, min(28, avail * 0.05));
+  barW   = max(28, min(96, (avail - barGap*(n+1)) / n));
+
+  const bY = 638, bW = 218, bH = 46;
+  btnCmp = { x: width/2 - bW - 12, y: bY, w: bW, h: bH };
+  btnAdd = { x: width/2 + 12,       y: bY, w: bW, h: bH };
+}
+
+function bx(i) { return cLeft + barGap + i*(barW+barGap); }
+
+function getBarTop(sim) {
+  return cBot - sim.profit * cH * easeOut(sim.anim);
+}
+
+function easeOut(t) { return 1 - Math.pow(1-t, 3); }
+
+/* ── DRAW LOOP ────────────────────────── */
+function draw() {
+  // Detect new simulation added
+  if (simulations.length > prevSimLen) {
+    const last = simulations[simulations.length-1];
+    const i = simulations.length - 1;
+    setTimeout(() => {
+      const bxi = bx(i) + barW/2;
+      for (let j=0; j<28; j++) {
+        particles.push({
+          x: bxi, y: cBot,
+          vx: random(-4,4), vy: random(-8,-2),
+          size: random(3,7),
+          r:61, g:125, b:255,
+          life: random(120,220)
+        });
+      }
+    }, 200);
+    prevSimLen = simulations.length;
+  }
+
+  // Animate
+  simulations.forEach(sim => {
+    if (sim.anim < 1) sim.anim = min(1, sim.anim + 0.035);
+  });
+  particles = particles.filter(p => p.life > 0);
+  particles.forEach(p => { p.x+=p.vx; p.y+=p.vy; p.vy+=0.22; p.life-=3; });
+  scanLine = (scanLine + 1.2) % cH;
+
+  layout();
+  background(8, 9, 13);
+
+  drawScanlines();
+  drawGrid();
+  drawBars();
+  if (selectedParam) drawParamLine();
+  drawParticles();
+  drawButtons();
+  drawAxisLabels();
+  if (popup) drawPopup();
+  updateHover();
+}
+
+/* ── SCANLINE EFFECT ──────────────────── */
+function drawScanlines() {
+  // Subtle horizontal scan across chart area
+  noStroke();
+  for (let y=cTop; y<cBot; y+=3) {
+    fill(255,255,255, y%6===0 ? 3 : 1);
+    rect(cLeft, y, cRight-cLeft, 1);
+  }
+  // Moving scan highlight
+  noStroke();
+  for (let dy=-4; dy<4; dy++) {
+    fill(61,125,255, map(abs(dy),0,4,10,0));
+    rect(cLeft, cTop+scanLine+dy, cRight-cLeft, 1);
+  }
+}
+
+/* ── GRID ─────────────────────────────── */
+function drawGrid() {
+  const N = 5;
+  stroke(90,130,220,18);
+  strokeWeight(1);
+  for (let i=0; i<=N; i++) {
+    const gy = cTop + (i/N)*cH;
+    line(cLeft, gy, cRight, gy);
+  }
+  // Left and bottom axis lines
+  stroke(61,125,255,60);
+  strokeWeight(2);
+  line(cLeft, cBot, cRight, cBot);
+  stroke(61,125,255,35);
+  strokeWeight(1);
+  line(cLeft, cTop, cLeft, cBot);
+
+  // Title
+  noStroke();
+  fill(200,220,255,210);
+  textSize(19);
+  textStyle(BOLD);
+  textAlign(CENTER, TOP);
+  text('Concessão de Crédito por Simulação', width/2, 66);
+  textStyle(NORMAL);
+
+  fill(120,160,220,100);
+  textSize(11);
+  textFont('Space Mono');
+  text('CLIQUE NUMA BARRA  ·  SCROLL ↓ PARA AÇÕES  ·  DROPDOWN PARA PARÂMETRO', width/2, 91);
+  textFont('DM Sans');
+}
+
+/* ── Y-AXIS ───────────────────────────── */
+function drawAxisLabels() {
+  const N = 5;
+  for (let i=0; i<=N; i++) {
+    const v = 1 - i/N;
+    const gy = cTop + (i/N)*cH;
+    noStroke();
+    fill(120,160,220,150);
+    textFont('Space Mono');
+    textSize(10);
+    textAlign(RIGHT, CENTER);
+    text((v*100).toFixed(0)+'%', cLeft-10, gy);
+    textFont('DM Sans');
+  }
+  push();
+  translate(18, (cTop+cBot)/2);
+  rotate(-HALF_PI);
+  noStroke();
+  fill(90,130,200,120);
+  textFont('Space Mono');
+  textSize(10);
+  textAlign(CENTER, CENTER);
+  text('LUCRO / CONCESSÃO', 0, 0);
+  textFont('DM Sans');
+  pop();
+}
+
+/* ── BARS ─────────────────────────────── */
+function drawBars() {
+  hoverIdx = -1;
+
+  simulations.forEach((sim, i) => {
+    const x = bx(i);
+    const bt = getBarTop(sim);
+    const bh = cBot - bt;
+    const isHov = mouseX>=x && mouseX<=x+barW && mouseY>=bt && mouseY<=cBot;
+    const isSel = popup && popup.simId===sim.id;
+
+    if (isHov) hoverIdx = i;
+
+    // Glow
+    if (isHov || isSel) {
+      drawingContext.shadowBlur = 30;
+      drawingContext.shadowColor = isSel ? 'rgba(161,155,254,0.45)' : 'rgba(61,125,255,0.45)';
+    }
+
+    // Bar gradient
+    const topC = isSel ? color(161,155,254) : isHov ? color(90,165,255) : color(61,125,255);
+    const botC = isSel ? color(60,50,140)   : isHov ? color(20,60,170)  : color(16,40,130);
+
+    noStroke();
+    for (let dy=0; dy<bh; dy+=2) {
+      const t = dy/bh;
+      fill(lerpColor(topC, botC, t));
+      rect(x, bt+dy, barW, 2.5);
+    }
+
+    // Glass sheen on top third
+    noStroke();
+    const sheenH = min(bh*0.35, 60);
+    for (let dy=0; dy<sheenH; dy++) {
+      fill(255,255,255, map(dy,0,sheenH,28,0));
+      rect(x+2, bt+dy, barW-4, 1);
+    }
+
+    drawingContext.shadowBlur = 0;
+
+    // Top cap rounded
+    noFill();
+    stroke(isSel ? color(200,195,255,200) : isHov ? color(120,190,255,160) : color(61,125,255,80));
+    strokeWeight(isSel||isHov ? 2 : 1.5);
+    rect(x, bt, barW, bh, 4,4,0,0);
+
+    // Profit label
+    if (sim.anim > 0.75) {
+      noStroke();
+      fill(isHov||isSel ? 255 : color(180,215,255,210));
+      textFont('Space Mono');
+      textSize(11);
+      textStyle(BOLD);
+      textAlign(CENTER, BOTTOM);
+      text((sim.profit*100).toFixed(0)+'%', x+barW/2, bt-6);
+      textStyle(NORMAL);
+      textFont('DM Sans');
+    }
+
+    // Name
+    noStroke();
+    fill(100,150,220, isSel||isHov ? 220 : 140);
+    textFont('Space Mono');
+    textSize(9);
+    textAlign(CENTER, TOP);
+    text(sim.name, x+barW/2, cBot+9);
+    textFont('DM Sans');
+  });
+}
+
+/* ── PARAMETER OVERLAY LINE ───────────── */
+function drawParamLine() {
+  if (simulations.length < 2) return;
+  const pm = PARAMS.find(p => p.key===selectedParam);
+  if (!pm) return;
+
+  const pts = simulations.map((sim,i) => ({
+    x: bx(i)+barW/2,
+    y: cBot - sim.params[selectedParam]*cH
+  }));
+
+  const c = color(pm.rgb[0], pm.rgb[1], pm.rgb[2]);
+
+  // Area fill
+  noStroke();
+  beginShape();
+  fill(pm.rgb[0], pm.rgb[1], pm.rgb[2], 22);
+  vertex(pts[0].x, cBot);
+  pts.forEach(p => vertex(p.x, p.y));
+  vertex(pts[pts.length-1].x, cBot);
+  endShape(CLOSE);
+
+  // Glow line
+  drawingContext.shadowBlur = 18;
+  drawingContext.shadowColor = `rgba(${pm.rgb},0.6)`;
+  stroke(c);
+  strokeWeight(2.5);
+  noFill();
+  beginShape();
+  curveVertex(pts[0].x, pts[0].y);
+  pts.forEach(p => curveVertex(p.x, p.y));
+  curveVertex(pts[pts.length-1].x, pts[pts.length-1].y);
+  endShape();
+  drawingContext.shadowBlur = 0;
+
+  // Dots + value labels
+  pts.forEach((p,i) => {
+    const val = simulations[i].params[selectedParam];
+
+    fill(8,9,13); stroke(c); strokeWeight(2.5);
+    ellipse(p.x, p.y, 12, 12);
+    noStroke(); fill(c);
+    ellipse(p.x, p.y, 5, 5);
+
+    // Small value badge
+    const vStr = (val*100).toFixed(0)+'%';
+    const tw = 30;
+    noStroke();
+    fill(pm.rgb[0], pm.rgb[1], pm.rgb[2], 180);
+    rect(p.x-tw/2, p.y-22, tw, 16, 3);
+    fill(8,9,13,220);
+    textFont('Space Mono');
+    textSize(9);
+    textAlign(CENTER, CENTER);
+    text(vStr, p.x, p.y-14);
+    textFont('DM Sans');
+  });
+
+  // Legend pill
+  const lp = pts[pts.length-1];
+  const tagTxt = pm.label+' · '+pm.desc;
+  textSize(11);
+  const tw2 = textWidth(tagTxt)+22;
+  const tx = min(lp.x+16, width-tw2-10);
+  const ty = lp.y-12;
+  noStroke();
+  fill(pm.rgb[0], pm.rgb[1], pm.rgb[2], 200);
+  rect(tx, ty, tw2, 22, 11);
+  fill(8,9,13,230);
+  textStyle(BOLD);
+  textAlign(LEFT, CENTER);
+  text(tagTxt, tx+11, ty+11);
+  textStyle(NORMAL);
+}
+
+/* ── BUTTONS ──────────────────────────── */
+function drawButtons() {
+  // Hint
+  noStroke(); fill(80,120,200,80);
+  textFont('Space Mono');
+  textSize(10);
+  textAlign(CENTER,TOP);
+  text('↓  SCROLL  ↓', width/2, cBot+28);
+  textFont('DM Sans');
+
+  [[btnCmp,'📊  Comparar Parâmetros',[40,100,220],[61,125,255]],
+   [btnAdd,'➕  Nova Simulação',      [85,45,185],[130,75,255]]
+  ].forEach(([btn, lbl, c1, c2]) => {
+    const isHov = mouseX>=btn.x&&mouseX<=btn.x+btn.w&&mouseY>=btn.y&&mouseY<=btn.y+btn.h;
+
+    if (isHov) {
+      drawingContext.shadowBlur = 24;
+      drawingContext.shadowColor = `rgba(${c2.join(',')},0.55)`;
+    }
+
+    noStroke();
+    for (let dy=0; dy<btn.h; dy++) {
+      const t = dy/btn.h;
+      fill(lerpColor(color(...c1), color(...c1.map((v,i)=>v*0.5)), t));
+      rect(btn.x, btn.y+dy, btn.w, 1.5);
+    }
+    drawingContext.shadowBlur = 0;
+
+    noFill();
+    stroke(color(...c2, isHov?200:120));
+    strokeWeight(1.5);
+    rect(btn.x, btn.y, btn.w, btn.h, btn.h/2);
+
+    noStroke();
+    fill(255,255,255, isHov?255:210);
+    textSize(13);
+    textStyle(BOLD);
+    textAlign(CENTER, CENTER);
+    text(lbl, btn.x+btn.w/2, btn.y+btn.h/2);
+    textStyle(NORMAL);
+  });
+
+  // Divider
+  stroke(61,125,255,20);
+  strokeWeight(1);
+  line(cLeft, cBot+18, cRight, cBot+18);
+}
+
+/* ── POPUP (Post-it) ──────────────────── */
+function drawPopup() {
+  const sim = simulations.find(s => s.id===popup.simId);
+  if (!sim) { popup=null; return; }
+
+  const i   = simulations.findIndex(s => s.id===sim.id);
+  const cx  = bx(i)+barW/2;
+  const bt  = getBarTop(sim);
+
+  const pw=264, ph=188;
+  let px=cx-pw/2;
+  let py=bt-ph-18;
+  px=constrain(px, 8, width-pw-8);
+  py=constrain(py, 64, height-ph-8);
+
+  const arrowX = constrain(cx, px+16, px+pw-16);
+
+  push();
+
+  // Shadow
+  drawingContext.shadowBlur = 36;
+  drawingContext.shadowColor = 'rgba(0,0,0,0.75)';
+
+  // Post-it body
+  fill(255,250,212);
+  stroke(195,180,90,220);
+  strokeWeight(1.5);
+  rect(px, py, pw, ph, 6);
+  drawingContext.shadowBlur = 0;
+
+  // Fold corner
+  noStroke();
+  fill(185,165,70,130);
+  triangle(px+pw-24,py, px+pw,py, px+pw,py+24);
+  fill(165,145,55,80);
+  triangle(px+pw-18,py, px+pw,py, px+pw,py+18);
+
+  // Header
+  noStroke();
+  fill(30,30,55);
+  textFont('Space Mono');
+  textSize(10);
+  textStyle(BOLD);
+  textAlign(LEFT,TOP);
+  text('📌 '+sim.name+' · TOP 3 INFLUÊNCIAS', px+13, py+13);
+  textStyle(NORMAL);
+  textFont('DM Sans');
+
+  stroke(185,170,100,130); strokeWeight(1);
+  line(px+10,py+32, px+pw-10,py+32);
+
+  // Top 3
+  sim.top3.forEach((key,idx) => {
+    const pm = PARAMS.find(p => p.key===key);
+    if (!pm) return;
+    const ry = py+44+idx*44;
+    const c  = color(pm.rgb[0],pm.rgb[1],pm.rgb[2]);
+    const val = sim.params[key];
+
+    // Colored dot
+    noStroke(); fill(c);
+    ellipse(px+20, ry+10, 11,11);
+
+    // Rank badge
+    fill(40,40,70,190);
+    rect(px+32, ry+3, 22,14, 3);
+    fill(235,235,235);
+    textFont('Space Mono');
+    textSize(9); textStyle(BOLD); textAlign(CENTER,CENTER);
+    text(idx+1, px+43, ry+10);
+    textStyle(NORMAL); textFont('DM Sans');
+
+    // Key name + desc
+    noStroke();
+    fill(25,25,50);
+    textSize(13); textStyle(BOLD); textAlign(LEFT,TOP);
+    text(pm.label, px+62, ry+2);
+    textStyle(NORMAL);
+    fill(50,50,75,200);
+    textSize(10);
+    text(pm.desc, px+62, ry+18);
+
+    // Mini bar
+    const bvx=px+170, bvy=ry+10, bvw=pw-185;
+    noStroke(); fill(195,185,150,100);
+    rect(bvx,bvy,bvw,5,2);
+    fill(c);
+    rect(bvx,bvy,bvw*val,5,2);
+    fill(30,30,50);
+    textFont('Space Mono'); textSize(8);
+    textAlign(RIGHT,CENTER);
+    text((val*100).toFixed(0)+'%', px+pw-8, bvy+2);
+    textFont('DM Sans');
+  });
+
+  // Close button
+  const cx2=px+pw-14, cy2=py+14;
+  noStroke(); fill(185,170,80,160);
+  ellipse(cx2,cy2,20,20);
+  fill(50,35,10);
+  textFont('Space Mono'); textSize(10); textStyle(BOLD); textAlign(CENTER,CENTER);
+  text('✕',cx2,cy2);
+  textStyle(NORMAL); textFont('DM Sans');
+
+  // Arrow pointing down to bar
+  noStroke(); fill(255,250,212);
+  triangle(arrowX-8,py+ph, arrowX+8,py+ph, arrowX,py+ph+13);
+  stroke(195,180,90,200); strokeWeight(1.2);
+  line(arrowX-8,py+ph, arrowX,py+ph+13);
+  line(arrowX+8,py+ph, arrowX,py+ph+13);
+
+  pop();
+}
+
+/* ── PARTICLES ────────────────────────── */
+function drawParticles() {
+  particles.forEach(p => {
+    noStroke();
+    fill(p.r,p.g,p.b, p.life*0.8);
+    const sz = p.size * (p.life/220);
+    ellipse(p.x, p.y, sz, sz);
+  });
+}
+
+/* ── CURSOR & HOVER ───────────────────── */
+function updateHover() {
+  const overBar = hoverIdx >= 0;
+  const overBtn = (mouseX>=btnCmp.x&&mouseX<=btnCmp.x+btnCmp.w&&mouseY>=btnCmp.y&&mouseY<=btnCmp.y+btnCmp.h) ||
+                  (mouseX>=btnAdd.x&&mouseX<=btnAdd.x+btnAdd.w&&mouseY>=btnAdd.y&&mouseY<=btnAdd.y+btnAdd.h);
+  cursor(overBar||overBtn ? HAND : ARROW);
+}
+
+/* ── MOUSE CLICKED ────────────────────── */
+function mouseClicked() {
+  // Close popup X
+  if (popup) {
+    const sim = simulations.find(s => s.id===popup.simId);
+    if (sim) {
+      const i = simulations.findIndex(s => s.id===sim.id);
+      const cx = bx(i)+barW/2;
+      const bt = getBarTop(sim);
+      const pw=264,ph=188;
+      let px=cx-pw/2, py=bt-ph-18;
+      px=constrain(px,8,width-pw-8); py=constrain(py,64,height-ph-8);
+      if (dist(mouseX,mouseY,px+pw-14,py+14)<14) { popup=null; return; }
+    }
+  }
+
+  // Bar click
+  for (let i=0; i<simulations.length; i++) {
+    const sim=simulations[i];
+    const x=bx(i), bt=getBarTop(sim);
+    if (mouseX>=x && mouseX<=x+barW && mouseY>=bt && mouseY<=cBot) {
+      popup = popup&&popup.simId===sim.id ? null : { simId:sim.id };
+      return;
+    }
+  }
+
+  // Buttons
+  if (mouseX>=btnCmp.x&&mouseX<=btnCmp.x+btnCmp.w&&mouseY>=btnCmp.y&&mouseY<=btnCmp.y+btnCmp.h) {
+    openCmp(); return;
+  }
+  if (mouseX>=btnAdd.x&&mouseX<=btnAdd.x+btnAdd.w&&mouseY>=btnAdd.y&&mouseY<=btnAdd.y+btnAdd.h) {
+    openAdd(); return;
+  }
+
+  popup = null;
+}
+</script>
+</body>
+</html>
